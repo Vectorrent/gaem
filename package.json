@@ -1,0 +1,23 @@
+{
+  "name": "gaem",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vectorrent/gaem.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Vectorrent/gaem/issues"
+  },
+  "homepage": "https://github.com/Vectorrent/gaem#readme",
+  "dependencies": {
+    "puppeteer": "^23.6.0",
+    "three": "^0.169.0"
+  }
+}
