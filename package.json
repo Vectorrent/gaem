@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Vectorrent/gaem.git"
@@ -17,6 +14,7 @@
   },
   "homepage": "https://github.com/Vectorrent/gaem#readme",
   "dependencies": {
+    "pngjs": "^7.0.0",
     "puppeteer": "^23.6.0",
     "three": "^0.169.0"
   }
