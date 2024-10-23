@@ -3,7 +3,7 @@ const { PNG } = require('pngjs');
 
 async function reconstructImage() {
   // Read the pixel data from the JSON file
-  const pixelData = JSON.parse(await fs.promises.readFile('pixels.json', 'utf8'));
+  const pixelData = JSON.parse(await fs.promises.readFile('data.json', 'utf8'));
 
   // Get image dimensions (ensure these match the dimensions used in your rendering script)
   const dimensions = Math.sqrt(pixelData.length)
@@ -36,7 +36,7 @@ async function reconstructImage() {
 }
 
 async function reconstructDepthMap() {
-  const pixelData = JSON.parse(await fs.promises.readFile('pixels.json', 'utf8'));
+  const pixelData = JSON.parse(await fs.promises.readFile('data.json', 'utf8'));
 
   const dimensions = Math.sqrt(pixelData.length)
   const width = dimensions;

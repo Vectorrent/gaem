@@ -5,8 +5,7 @@ async function renderCube() {
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
 
-  // Set a smaller viewport for testing to reduce data size
-  const dimensions = 512
+  const dimensions = 512;
   const width = dimensions;
   const height = dimensions;
   await page.setViewport({ width, height });
@@ -21,15 +20,11 @@ async function renderCube() {
     });
   });
 
-  // Render the scene and extract pixel data
   const pixelData = await page.evaluate(async (width, height) => {
-    // Function to set up and render the cube scene
     function setupScene() {
-      // Initialize scene
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0xf0f0f0);
 
-      // Initialize camera
       const aspectRatio = 1;
       const viewSize = 10;
       const camera = new THREE.OrthographicCamera(
@@ -41,21 +36,18 @@ async function renderCube() {
         1000
       );
 
-      // Randomize camera rotation
-      const randomRotationY = (Math.random() * 2 - 1) * Math.PI; // -π to π
-      const randomRotationX = (Math.random() - 0.5) * Math.PI;    // -π/2 to π/2
+      const randomRotationY = (Math.random() * 2 - 1) * Math.PI;
+      const randomRotationX = (Math.random() - 0.5) * Math.PI;
 
       camera.rotation.order = 'YXZ';
       camera.rotation.y = randomRotationY;
       camera.rotation.x = randomRotationX;
 
-      // Camera position
       const distance = 20;
       const direction = new THREE.Vector3(0, 0, -1);
       direction.applyEuler(camera.rotation);
       camera.position.copy(direction.multiplyScalar(-distance));
 
-      // Initialize renderer
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true
@@ -64,20 +56,18 @@ async function renderCube() {
       renderer.setPixelRatio(window.devicePixelRatio);
       document.body.appendChild(renderer.domElement);
 
-      // Create cube and add to scene
       const geometry = new THREE.BoxGeometry(2, 2, 2);
       const materials = [
-        new THREE.MeshPhongMaterial({ color: 0x00ff00 }),  // Right
-        new THREE.MeshPhongMaterial({ color: 0x00dd00 }),  // Left
-        new THREE.MeshPhongMaterial({ color: 0x00bb00 }),  // Top
-        new THREE.MeshPhongMaterial({ color: 0x009900 }),  // Bottom
-        new THREE.MeshPhongMaterial({ color: 0x007700 }),  // Front
-        new THREE.MeshPhongMaterial({ color: 0x005500 })   // Back
+        new THREE.MeshPhongMaterial({ color: 0x00ff00 }),
+        new THREE.MeshPhongMaterial({ color: 0x00dd00 }),
+        new THREE.MeshPhongMaterial({ color: 0x00bb00 }),
+        new THREE.MeshPhongMaterial({ color: 0x009900 }),
+        new THREE.MeshPhongMaterial({ color: 0x007700 }),
+        new THREE.MeshPhongMaterial({ color: 0x005500 })
       ];
-      const cubeWithMaterials = new THREE.Mesh(geometry, materials);
-      scene.add(cubeWithMaterials);
+      const cube = new THREE.Mesh(geometry, materials);
+      scene.add(cube);
 
-      // Lighting setup
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
       scene.add(ambientLight);
 
@@ -93,17 +83,16 @@ async function renderCube() {
       topLight.position.set(0, 8, -5);
       scene.add(topLight);
 
-      return { scene, camera, renderer };
+      return { scene, camera, renderer, cube };
     }
 
-    // Function to extract pixel data from the rendered scene
-    function extractPixelData(scene, camera, renderer) {
-      // Create a render target with depth texture
+    function extractPixelData(scene, camera, renderer, cube) {
+      // Create render target for color data
       const renderTarget = new THREE.WebGLRenderTarget(width, height);
       renderTarget.texture.format = THREE.RGBAFormat;
       renderTarget.texture.type = THREE.UnsignedByteType;
 
-      // Render the scene normally to get color data
+      // Render the scene to get color data
       renderer.setRenderTarget(renderTarget);
       renderer.render(scene, camera);
       renderer.setRenderTarget(null);
@@ -112,77 +101,60 @@ async function renderCube() {
       const colorPixelBuffer = new Uint8Array(width * height * 4);
       renderer.readRenderTargetPixels(renderTarget, 0, 0, width, height, colorPixelBuffer);
 
-      // Render the scene with a depth material to get depth data
-      const depthMaterial = new THREE.MeshDepthMaterial();
-      depthMaterial.depthPacking = THREE.RGBADepthPacking;
-      depthMaterial.blending = THREE.NoBlending;
+      // Set up raycaster
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
 
-      // Replace all materials in the scene with the depth material
-      const originalMaterials = [];
-      scene.traverse(function (child) {
-        if (child.isMesh) {
-          originalMaterials.push({ mesh: child, material: child.material });
-          child.material = depthMaterial;
-        }
-      });
+      // Calculate camera's near and far planes for depth normalization
+      const nearPlane = camera.near;
+      const farPlane = camera.far;
 
-      // Render the scene with the depth material
-      const depthRenderTarget = new THREE.WebGLRenderTarget(width, height);
-      renderer.setRenderTarget(depthRenderTarget);
-      renderer.render(scene, camera);
-      renderer.setRenderTarget(null);
-
-      // Restore original materials
-      originalMaterials.forEach(function (item) {
-        item.mesh.material = item.material;
-      });
-
-      // Read the depth data
-      const depthPixelBuffer = new Uint8Array(width * height * 4);
-      renderer.readRenderTargetPixels(depthRenderTarget, 0, 0, width, height, depthPixelBuffer);
-
-      // Function to unpack RGBA depth values
-      function unpackRGBADepth(r, g, b, a) {
-        const normalized = [r, g, b, a].map(v => v / 255);
-        const bitShift = [1 / (256 * 256 * 256), 1 / (256 * 256), 1 / 256, 1];
-        return normalized.reduce((sum, v, i) => sum + v * bitShift[i], 0);
-      }
-
-      // Combine color and depth data
+      // Create array to store final pixel data
       const data = [];
-      for (let i = 0; i < width * height; i++) {
-        const idx = i * 4;
-        const r = colorPixelBuffer[idx];
-        const g = colorPixelBuffer[idx + 1];
-        const b = colorPixelBuffer[idx + 2];
-        const a = colorPixelBuffer[idx + 3];
 
-        const dr = depthPixelBuffer[idx];
-        const dg = depthPixelBuffer[idx + 1];
-        const db = depthPixelBuffer[idx + 2];
-        const da = depthPixelBuffer[idx + 3];
+      // Process each pixel
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
 
-        let depth = unpackRGBADepth(dr, dg, db, da);
-        if (depth >= 1.0) depth = null; // infinite depth/no object/background will always be greater than or equal to 1.0
+          // Get color data
+          const r = colorPixelBuffer[i];
+          const g = colorPixelBuffer[i + 1];
+          const b = colorPixelBuffer[i + 2];
+          const a = colorPixelBuffer[i + 3];
 
-        data.push({ r, g, b, a: a / 255, d: depth });
+          // Calculate normalized device coordinates
+          mouse.x = (x / width) * 2 - 1;
+          mouse.y = -(y / height) * 2 + 1;
+
+          // Update the raycaster
+          raycaster.setFromCamera(mouse, camera);
+
+          // Perform the raycast
+          const intersects = raycaster.intersectObject(cube);
+
+          // Calculate depth
+          let depth = null;
+          if (intersects.length > 0) {
+            // Normalize depth between 0 and 1
+            depth = (intersects[0].distance - nearPlane) / (farPlane - nearPlane);
+          }
+
+          // Store pixel data
+          data.push({ r, g, b, a: a / 255, d: depth });
+        }
       }
 
       return data;
     }
 
-    // Set up the scene
-    const { scene, camera, renderer } = setupScene();
-
-    // Extract pixel data
-    const data = extractPixelData(scene, camera, renderer);
-
+    const { scene, camera, renderer, cube } = setupScene();
+    const data = extractPixelData(scene, camera, renderer, cube);
     return data;
   }, width, height);
 
-  // Write the data to a JSON file
-  await fs.writeFile('pixels.json', JSON.stringify(pixelData));
-  console.log('Pixel data saved to pixels.json');
+  await fs.writeFile('data.json', JSON.stringify(pixelData));
+  console.log('Pixel data saved to data.json');
 
   await browser.close();
 }
