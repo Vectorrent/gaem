@@ -67,8 +67,8 @@ async function renderCube(argObj) {
         phi = THREE.Math.degToRad(argObj.x % 180);
       } else {
         phi = Math.random() * Math.PI; // 0 to π
-      }
-    
+      }  
+
       // Avoid phi being exactly 0 or π to prevent singularities at the poles
       phi = Math.max(0.01, Math.min(Math.PI - 0.01, phi));
     
@@ -80,6 +80,11 @@ async function renderCube(argObj) {
     
       // Make the camera look at the center of the scene
       camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+      if (argObj.z !== undefined && !isNaN(argObj.z)) {
+        const rollAngle = THREE.Math.degToRad(argObj.z % 360);
+        camera.rotateZ(rollAngle);
+      }    
 
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
