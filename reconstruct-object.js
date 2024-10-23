@@ -1,12 +1,27 @@
 const fs = require('fs');
 const { PNG } = require('pngjs');
 
-async function reconstructImage() {
-  // Read the pixel data from the JSON file
-  const pixelData = JSON.parse(await fs.promises.readFile('data.json', 'utf8'));
+// Parse command-line arguments
+const args = process.argv.slice(2);
+const argObj = {
+  workDir: 'data',
+  sourceData: 'cube.json',
+  saveName: 'cube'
+};
 
-  // Get image dimensions (ensure these match the dimensions used in your rendering script)
-  const dimensions = Math.sqrt(pixelData.length)
+args.forEach(arg => {
+  const [key, value] = arg.split('=');
+  // Check if string represents a valid number
+  const isNumber = !isNaN(value) && !isNaN(parseFloat(value));
+  argObj[key] = isNumber ? parseFloat(value) : value;
+});
+
+async function reconstructImage(argObj) {
+  // Read the pixel data from the JSON file
+  const pixelData = JSON.parse(await fs.promises.readFile(argObj.workDir + "/" + argObj.sourceData, 'utf8'));
+
+  // Get image dimensions
+  const dimensions = Math.sqrt(pixelData.length);
   const width = dimensions;
   const height = dimensions;
 
@@ -15,6 +30,7 @@ async function reconstructImage() {
 
   // Loop over each pixel and set the RGBA values
   for (let y = 0; y < height; y++) {
+    // No inversion needed here
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4; // Index in the png.data buffer
       const pixelIdx = y * width + x;  // Index in the pixelData array
@@ -29,16 +45,17 @@ async function reconstructImage() {
   }
 
   // Write the PNG file
-  png.pack().pipe(fs.createWriteStream('object_reconstructed.png'))
+  const path = argObj.workDir + "/" + argObj.saveName
+  png.pack().pipe(fs.createWriteStream(`${path}_reconstructed.png`))
     .on('finish', () => {
-      console.log('Image reconstructed and saved as object_reconstructed.png');
+      console.log(`Image reconstructed and saved as ${path}_reconstructed.png`);
     });
 }
 
-async function reconstructDepthMap() {
-  const pixelData = JSON.parse(await fs.promises.readFile('data.json', 'utf8'));
+async function reconstructDepthMap(argObj) {
+  const pixelData = JSON.parse(await fs.promises.readFile(argObj.workDir + "/" + argObj.sourceData, 'utf8'));
 
-  const dimensions = Math.sqrt(pixelData.length)
+  const dimensions = Math.sqrt(pixelData.length);
   const width = dimensions;
   const height = dimensions;
 
@@ -51,6 +68,7 @@ async function reconstructDepthMap() {
 
   // Loop over each pixel and set the grayscale value based on depth
   for (let y = 0; y < height; y++) {
+    // No inversion needed here
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
       const pixelIdx = y * width + x;
@@ -72,14 +90,14 @@ async function reconstructDepthMap() {
       png.data[idx + 3] = 255; // Fully opaque
     }
   }
-
-  png.pack().pipe(fs.createWriteStream('object_depth_map.png'))
+  const path = argObj.workDir + "/" + argObj.saveName
+  png.pack().pipe(fs.createWriteStream(`${path}_depth_map.png`))
     .on('finish', () => {
-      console.log('Depth map saved as object_depth_map.png');
+      console.log(`Depth map saved as ${path}_depth_map.png`);
     });
 }
 
 (async () => {
-  await reconstructImage();
-  await reconstructDepthMap();
+  await reconstructImage(argObj);
+  await reconstructDepthMap(argObj);
 })().catch(console.error);
